@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Server resources of Udagram project
+
+Parameters:
+  EnvironmentName:
+    Description: Indicate the environment the resource is created in
+    Type: String
+
+Resources:
+  S3BucketIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "*"
+                Resource: "*"
+
+  EC2IAMInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: /
+      Roles:
+        - !Ref S3BucketIAMRole
+
+  LBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our load balancer
+      VpcId:
+        Fn::ImportValue: !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts and SSH from local only
+      VpcId:
+        Fn::ImportValue: !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+
+  WebAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt update -y
+          sudo apt install apache2 -y
+          sudo systemctl start apache2
+          cd /var/www/html
+          echo "Welcome! to  Udagram, Udacity, this is proof that the IAC code worked!" > index.html
+      ImageId: !Ref AMI-ID
+      IamInstanceProfile: !Ref EC2IAMInstanceProfile
+      SecurityGroups:
+        - Ref: WebServerSecGroup
+      InstanceType: !Ref Instance-Type
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: "10"
+            DeleteOnTermination: true
+
+  WebAppGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub "${EnvironmentName}-PrivateSubnets"
+      LaunchConfigurationName:
+        Ref: WebAppLaunchConfig
+      MinSize: "2"
+      MaxSize: "4"
+      DesiredCapacity: "4"
+      TargetGroupARNs:
+        - Ref: WebAppTargetGroup
+
+  WebserverLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Fn::ImportValue: !Sub "${EnvironmentName}-PublicSubnet1"
+        - Fn::ImportValue: !Sub "${EnvironmentName}-PublicSubnet2"
+      SecurityGroups:
+        - Ref: LBSecGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: WebAppTargetGroup
+      LoadBalancerArn:
+        Ref: WebAppLB
+      Port: "80"
+      Protocol: HTTP
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref "WebAppTargetGroup"
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref "Listener"
+      Priority: 1
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 20
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Fn::ImportValue:
+          Fn::Sub: "${EnvironmentName}-VPCID"
+
+Outputs:
+  Website:
+ 
+    Description: Public DNS Name for the  LoadBalancer
+    Value: !Sub http://${WebserverLB.DNSName}
+    Export:
+      Name: !Sub ${EnvironmentName}-LoadBalancerDNSURL
