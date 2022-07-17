@@ -1,0 +1,14 @@
+[
+    {
+      "ParameterKey": "EnvironmentName",
+      "ParameterValue": "UdagramProject2"
+    },
+    {
+      "ParameterKey": "AMIID",
+      "ParameterValue": "ami-0729e439b6769d6ab"
+    },
+    {
+      "ParameterKey": "Instancetype",
+      "ParameterValue": "t3.medium"
+    }
+  ]
