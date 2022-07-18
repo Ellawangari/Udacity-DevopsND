@@ -94,7 +94,6 @@ Resources:
           cd /var/www/html
           echo "Welcome! to  Udagram, Udacity, this is proof that the IAC code worked!" > index.html
       ImageId: !Ref AMIID
-      KeyName: project2
       IamInstanceProfile: !Ref EC2IAMInstanceProfile
       SecurityGroups:
         - Ref: WebServerSecGroup
