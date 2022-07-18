@@ -5,3 +5,9 @@
 
  ![alt text](https://github.com/Ellawangari/DevOps-Diagrams/blob/main/Udacity-ND-DevOps/Udacity-Project2.drawio.png)
 
+#### DNS Output 
+ URL `http://stack-webse-1d1zet2pigz77-1454579593.us-east-1.elb.amazonaws.com/`
+
+ Image
+
+ ![alt text](https://github.com/Ellawangari/Udacity-DevopsND/blob/main/imgs/Project2/cloud10.PNG)
