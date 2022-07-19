@@ -13,7 +13,7 @@
   
   
    #### Uses Stacks to provision infrastructure. 
-  One can use yaml file to contain the infrastructure to provision code the use a json file to store parameters.
+  One can use yaml file to contain the infrastructure to provision code then use a json file to store parameters.
   Before creating a stack it is important to validate your stack.
   ```
   aws cloudformation validate-template --template-body file://network.yaml
